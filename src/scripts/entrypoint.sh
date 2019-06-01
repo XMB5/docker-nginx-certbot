@@ -26,15 +26,23 @@ for f in /scripts/startup/*.sh; do
 done
 echo "Done with startup"
 
+# Sleep but handle ctrl-c correctly
+hooksleep() {
+    sleep $1 &
+    SLEEP_PID=$!
+
+    # Wait on sleep so that when we get ctrl-c'ed it kills everything due to our trap
+    wait "$SLEEP_PID"
+}
+
+# fixes problems when no certs get renewed
+hooksleep 5;
+
 # Instead of trying to run `cron` or something like that, just sleep and run `certbot`.
 while [ true ]; do
     echo "Run certbot"
     /scripts/run_certbot.sh
 
     # Sleep for 1 week
-    sleep 604810 &
-    SLEEP_PID=$!
-
-    # Wait on sleep so that when we get ctrl-c'ed it kills everything due to our trap
-    wait "$SLEEP_PID"
+    hooksleep 604810
 done
