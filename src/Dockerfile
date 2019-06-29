@@ -1,5 +1,4 @@
-FROM nginx
-LABEL maintainer="Elliot Saba <staticfloat@gmail.com>, Valder Gallo <valergallo@gmail.com>, Bruno Zell <bruno.zzell@gmail.com>"
+FROM ubuntu
 
 VOLUME /etc/letsencrypt
 EXPOSE 80
@@ -8,12 +7,13 @@ EXPOSE 443
 # Do this apt/pip stuff all in one RUN command to avoid creating large
 # intermediate layers on non-squashable docker installs
 RUN apt update && \
-    apt install -y python python-dev libffi6 libffi-dev libssl-dev curl build-essential && \
-    curl -L 'https://bootstrap.pypa.io/get-pip.py' | python && \
+    apt upgrade -y && \
+    apt install -y nginx libnginx-mod-http-subs-filter python wget && \
+    wget -O- 'https://bootstrap.pypa.io/get-pip.py' | python && \
     pip install -U cffi certbot && \
-    apt remove --purge -y python-dev build-essential libffi-dev libssl-dev curl && \
-    apt-get autoremove -y && \
-    apt-get clean && \
+    apt purge -y wget && \
+    apt autoremove -y --purge && \
+    apt clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy in scripts for certbot
@@ -25,8 +25,13 @@ RUN mkdir -p /scripts/startup
 
 # Copy in default nginx configuration (which just forwards ACME requests to
 # certbot, or redirects to HTTPS, but has no HTTPS configurations by default).
-RUN rm -f /etc/nginx/conf.d/*
+RUN rm -f /etc/nginx/conf.d/* && rm -f /etc/nginx/sites-enabled/*
 COPY nginx_conf.d/ /etc/nginx/conf.d/
+
+# https://github.com/nginxinc/docker-nginx/blob/master/stable/stretch/Dockerfile
+# forward request and error logs to docker log collector
+RUN ln -sf /dev/stdout /var/log/nginx/access.log \
+    && ln -sf /dev/stderr /var/log/nginx/error.log
 
 ENTRYPOINT []
 CMD ["/bin/bash", "/scripts/entrypoint.sh"]
