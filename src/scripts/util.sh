@@ -30,7 +30,7 @@ parse_keyfiles() {
 keyfiles_exist() {
     for keyfile in $(parse_keyfiles $1); do
 	    currentfile=${keyfile//$'\r'/}
-        if [ ! -f $currentfile ] || is_renewal_required_file "$currentfile"; then
+        if [ ! -f $currentfile ] || is_renewal_required_file "$currentfile" 7776000; then
             echo "Couldn't find keyfile $currentfile for $1"
             return 1
         fi
@@ -72,7 +72,7 @@ get_certificate() {
     fi
 
     echo "running certbot ... $letsencrypt_url $1 $2"
-    certbot certonly --agree-tos --keep -n --text --email $2 --server \
+    certbot certonly --agree-tos --keep-until-expiring -n --text --email $2 --server \
         $letsencrypt_url -d $1 --http-01-port 1337 \
         --standalone --preferred-challenges http-01 --debug
 }
@@ -84,12 +84,12 @@ is_renewal_required_file() {
     last_renewal_file="$1"
     [ ! -e "$last_renewal_file" ] && return;
     
-    # If the file exists, check if the last renewal was more than a week ago
-    one_week_sec=604800
+    # If the file exists, check if the last renewal was more than a week ago (or seconds given as second parameter)
+    max_duration_sec=${2:-604800}
     now_sec=$(date -d now +%s)
     last_renewal_sec=$(stat -c %Y "$last_renewal_file")
     last_renewal_delta_sec=$(( ($now_sec - $last_renewal_sec) ))
-    is_finshed_week_sec=$(( ($one_week_sec - $last_renewal_delta_sec) ))
+    is_finshed_week_sec=$(( ($max_duration_sec - $last_renewal_delta_sec) ))
     [ $is_finshed_week_sec -lt 0 ]
 }
 
