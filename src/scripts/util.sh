@@ -30,7 +30,7 @@ parse_keyfiles() {
 keyfiles_exist() {
     for keyfile in $(parse_keyfiles $1); do
 	    currentfile=${keyfile//$'\r'/}
-        if [ ! -f $currentfile ]; then
+        if [ ! -f $currentfile ] || is_renewal_required_file "$currentfile"; then
             echo "Couldn't find keyfile $currentfile for $1"
             return 1
         fi
@@ -77,11 +77,11 @@ get_certificate() {
         --standalone --preferred-challenges http-01 --debug
 }
 
-# Given a domain name, return true if a renewal is required (last renewal
+# Given a file, return true if a renewal is required (last renewal
 # ran over a week ago or never happened yet), otherwise return false.
-is_renewal_required() {
+is_renewal_required_file() {
     # If the file does not exist assume a renewal is required
-    last_renewal_file="/etc/letsencrypt/live/$1/privkey.pem"
+    last_renewal_file="$1"
     [ ! -e "$last_renewal_file" ] && return;
     
     # If the file exists, check if the last renewal was more than a week ago
@@ -91,6 +91,11 @@ is_renewal_required() {
     last_renewal_delta_sec=$(( ($now_sec - $last_renewal_sec) ))
     is_finshed_week_sec=$(( ($one_week_sec - $last_renewal_delta_sec) ))
     [ $is_finshed_week_sec -lt 0 ]
+}
+
+is_renewal_required() {
+	is_renewal_required_file "/etc/letsencrypt/live/$1/privkey.pem"
+	return $?
 }
 
 # symlinks any *.conf files in /etc/nginx/user.conf.d
